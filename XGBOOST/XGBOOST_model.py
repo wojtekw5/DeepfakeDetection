@@ -11,6 +11,7 @@ from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score, roc_auc_score,
     confusion_matrix, roc_curve, precision_recall_curve
 )
+import csv
 
 # Ścieżki do gotowych cech
 desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
@@ -88,30 +89,64 @@ metrics_df.to_csv(os.path.join(model_folder, "classification_metrics.csv"), inde
 
 # Wykres ważności cech
 def plot_feature_importance(model, feature_names, model_folder):
-    importance = model.get_booster().get_score(importance_type="gain")
-    sorted_idx = sorted(importance.items(), key=lambda x: x[1], reverse=True)
+    # Pobierz booster i metryki: gain i weight
+    booster = model.get_booster()
+    gain = booster.get_score(importance_type="gain")
+    weight = booster.get_score(importance_type="weight")
+
+    # całkowity gain
+    total_gain = sum(gain.values())
+
+    # gain do postaci procentowej
+    normalized_gain = {}
+    for k, v in gain.items():
+        normalized_gain[k] = (v / total_gain) * 100
+
+    # sortowanie po %
+    sorted_items = sorted(normalized_gain.items(), key=lambda x: x[1], reverse=True)
 
     sorted_values = []
-    feature_indices = []
-    for k, v in sorted_idx:
-        sorted_values.append(v)
-        feature_indices.append(int(k[1:]))
-
     sorted_features = []
-    for i in feature_indices:
-        sorted_features.append(feature_names[i])
 
+    csv_rows = []
+
+    for k, percent_gain in sorted_items:
+        feature_idx = int(k[1:])  # 'f0' → 0
+        feature_name = feature_names[feature_idx]
+        sorted_features.append(feature_name)
+        sorted_values.append(percent_gain)
+
+        # liczba splitów (weight) – może być 0, jeśli cecha nie została użyta
+        split_count = weight.get(k, 0)
+
+        csv_rows.append({
+            "Cecha": feature_name,
+            "Gain (%)": round(percent_gain, 2),
+            "Gain (surowy)": round(gain[k], 6),
+            "Liczba splitów": int(split_count)
+        })
+
+    # Zapisz do CSV
+    csv_path = os.path.join(model_folder, "feature_importance.csv")
+    with open(csv_path, mode='w', newline='', encoding='utf-8') as csv_file:
+        fieldnames = ["Cecha", "Gain (%)", "Gain (surowy)", "Liczba splitów"]
+        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(csv_rows)
+
+    # Wykres
     plt.figure(figsize=(10, 6))
     plt.barh(sorted_features, sorted_values, align="center")
-    plt.xlabel("Feature Importance (Gain)")
+    plt.xlabel("Gain (%)")
     plt.ylabel("Features")
-    plt.title("Ważność cech w modelu XGBoost")
+    plt.title("Udział cech w redukcji straty (XGBoost Gain %)")
     plt.gca().invert_yaxis()
     plt.tight_layout()
     plt.savefig(os.path.join(model_folder, "feature_importance.png"))
     plt.show()
 
-# Pozostałe wykresy
+
+
 def plot_roc_curve():
     fpr, tpr, _ = roc_curve(y_test, y_pred_probs)
     plt.figure()
