@@ -114,3 +114,14 @@ print("\n Dataset 3")
 stats_3 = stats(dataset_3)
 for k, v in stats_3.items():
     print(f"{k}: {v}")
+
+def show_group_distribution(dataset, label):
+    print(f"\n Procentowy udział grup demograficznych w {label}:")
+    group_percent = dataset["gender"] + "_" + dataset["age_group"]
+    percent = group_percent.value_counts(normalize=True).sort_index() * 100
+    percent = percent.round(2)
+    print(percent.to_string())
+
+show_group_distribution(dataset_1, "Dataset 1")
+show_group_distribution(dataset_2, "Dataset 2")
+show_group_distribution(dataset_3, "Dataset 3")
