@@ -87,38 +87,107 @@ metrics = {
 metrics_df = pd.DataFrame(metrics, index=[0])
 metrics_df.to_csv(os.path.join(model_folder, "classification_metrics.csv"), index=False)
 
+# Historia metryk po każdej iteracji
+history = {
+    "epoch": [],
+    "accuracy": [],
+    "precision": [],
+    "recall": [],
+    "f1_score": [],
+    "auc": []
+}
+
+for i in range(1, xgb_model.n_estimators + 1):
+    y_proba_iter = xgb_model.predict_proba(X_test, iteration_range=(0, i))[:, 1]
+    y_pred_iter = (y_proba_iter > 0.5).astype(int)
+
+    history["epoch"].append(i)
+    history["accuracy"].append(accuracy_score(y_test, y_pred_iter))
+    history["precision"].append(precision_score(y_test, y_pred_iter, zero_division=0))
+    history["recall"].append(recall_score(y_test, y_pred_iter))
+    history["f1_score"].append(f1_score(y_test, y_pred_iter))
+    history["auc"].append(roc_auc_score(y_test, y_proba_iter))
+
+# Zapis historii do CSV
+history_df = pd.DataFrame(history)
+history_df.to_csv(os.path.join(model_folder, "training_history.csv"), index=False)
+
+# Wykresy historii
+def plot_accuracy_history(history_df, model_folder):
+    plt.figure()
+    plt.plot(history_df["epoch"], history_df["accuracy"])
+    plt.xlabel("Iteracje Boostingu")
+    plt.ylabel("ACCURACY")
+    plt.title("ACCURACY XGBOOST")
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(os.path.join(model_folder, "accuracy_history.png"))
+    plt.show()
+
+def plot_precision_history(history_df, model_folder):
+    plt.figure()
+    plt.plot(history_df["epoch"], history_df["precision"])
+    plt.xlabel("Iteracje Boostingu")
+    plt.ylabel("PRECISION")
+    plt.title("PRECISION XGBOOST")
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(os.path.join(model_folder, "precision_history.png"))
+    plt.show()
+
+def plot_recall_history(history_df, model_folder):
+    plt.figure()
+    plt.plot(history_df["epoch"], history_df["recall"])
+    plt.xlabel("Iteracje Boostingu")
+    plt.ylabel("RECALL")
+    plt.title("RECALL XGBOOST")
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(os.path.join(model_folder, "recall_history.png"))
+    plt.show()
+
+def plot_f1_score_history(history_df, model_folder):
+    plt.figure()
+    plt.plot(history_df["epoch"], history_df["f1_score"])
+    plt.xlabel("Iteracje Boostingu")
+    plt.ylabel("F1_SCORE")
+    plt.title("F1_SCORE XGBOOST")
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(os.path.join(model_folder, "f1_score_history.png"))
+    plt.show()
+
+def plot_auc_history(history_df, model_folder):
+    plt.figure()
+    plt.plot(history_df["epoch"], history_df["auc"])
+    plt.xlabel("Iteracje Boostingu")
+    plt.ylabel("AUC")
+    plt.title("AUC XGBOOST")
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(os.path.join(model_folder, "auc_history.png"))
+    plt.show()
+
+
 # Wykres ważności cech
 def plot_feature_importance(model, feature_names, model_folder):
-    # Pobierz booster i metryki: gain i weight
     booster = model.get_booster()
     gain = booster.get_score(importance_type="gain")
     weight = booster.get_score(importance_type="weight")
-
-    # całkowity gain
     total_gain = sum(gain.values())
-
-    # gain do postaci procentowej
-    normalized_gain = {}
-    for k, v in gain.items():
-        normalized_gain[k] = (v / total_gain) * 100
-
-    # sortowanie po %
+    normalized_gain = {k: (v / total_gain) * 100 for k, v in gain.items()}
     sorted_items = sorted(normalized_gain.items(), key=lambda x: x[1], reverse=True)
 
     sorted_values = []
     sorted_features = []
-
     csv_rows = []
 
     for k, percent_gain in sorted_items:
-        feature_idx = int(k[1:])  # 'f0' → 0
+        feature_idx = int(k[1:])
         feature_name = feature_names[feature_idx]
         sorted_features.append(feature_name)
         sorted_values.append(percent_gain)
-
-        # liczba splitów (weight) – może być 0, jeśli cecha nie została użyta
         split_count = weight.get(k, 0)
-
         csv_rows.append({
             "Cecha": feature_name,
             "Gain (%)": round(percent_gain, 2),
@@ -126,35 +195,29 @@ def plot_feature_importance(model, feature_names, model_folder):
             "Liczba splitów": int(split_count)
         })
 
-    # Zapisz do CSV
-    csv_path = os.path.join(model_folder, "feature_importance.csv")
-    with open(csv_path, mode='w', newline='', encoding='utf-8') as csv_file:
-        fieldnames = ["Cecha", "Gain (%)", "Gain (surowy)", "Liczba splitów"]
-        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+    with open(os.path.join(model_folder, "feature_importance.csv"), 'w', newline='', encoding='utf-8') as f:
+        writer = csv.DictWriter(f, fieldnames=["Cecha", "Gain (%)", "Gain (surowy)", "Liczba splitów"])
         writer.writeheader()
         writer.writerows(csv_rows)
 
-    # Wykres
     plt.figure(figsize=(10, 6))
-    plt.barh(sorted_features, sorted_values, align="center")
+    plt.barh(sorted_features, sorted_values)
     plt.xlabel("Gain (%)")
-    plt.ylabel("Features")
-    plt.title("Udział cech w redukcji straty (XGBoost Gain %)")
+    plt.ylabel("Cechy")
+    plt.title("Ważność cech [GAIN] %")
     plt.gca().invert_yaxis()
     plt.tight_layout()
     plt.savefig(os.path.join(model_folder, "feature_importance.png"))
     plt.show()
-
-
 
 def plot_roc_curve():
     fpr, tpr, _ = roc_curve(y_test, y_pred_probs)
     plt.figure()
     plt.plot(fpr, tpr, label=f"AUC = {metrics['AUC-ROC']:.2f}")
     plt.plot([0, 1], [0, 1], linestyle="--", color="gray")
-    plt.xlabel("False Positive Rate")
-    plt.ylabel("True Positive Rate")
-    plt.title("ROC Curve")
+    plt.xlabel("Fałszywe pozytywne")
+    plt.ylabel("Prawdziwe pozytywne")
+    plt.title("ROC XGBOOST")
     plt.legend()
     plt.savefig(os.path.join(model_folder, "roc_curve.png"))
     plt.show()
@@ -165,7 +228,7 @@ def plot_precision_recall_curve_fn():
     plt.plot(recall, prec, label="Precision-Recall")
     plt.xlabel("Recall")
     plt.ylabel("Precision")
-    plt.title("Precision-Recall Curve")
+    plt.title("Precision-Recall XGBOOST")
     plt.legend()
     plt.savefig(os.path.join(model_folder, "precision_recall_curve.png"))
     plt.show()
@@ -181,6 +244,12 @@ def plot_confusion_matrix_fn():
     plt.show()
 
 # Wykresy
+plot_accuracy_history(history_df, model_folder)
+plot_precision_history(history_df, model_folder)
+plot_recall_history(history_df, model_folder)
+plot_f1_score_history(history_df, model_folder)
+plot_auc_history(history_df, model_folder)
+
 plot_feature_importance(xgb_model, feature_names, model_folder)
 plot_roc_curve()
 plot_precision_recall_curve_fn()
@@ -190,6 +259,5 @@ plot_confusion_matrix_fn()
 pickle.dump(scaler, open(os.path.join(model_folder, "scaler.pkl"), "wb"))
 xgb_model.save_model(os.path.join(model_folder, "xgboost_model.json"))
 pickle.dump(xgb_model, open(os.path.join(model_folder, "xgboost_model.pkl"), "wb"))
-
 
 print(f"\n Model i wykresy zapisane w: {model_folder}")
