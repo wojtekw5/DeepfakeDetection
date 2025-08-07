@@ -5,10 +5,6 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import confusion_matrix, roc_curve
 
-# Ścieżki i parametry
-SAMPLE_RATE = 8000
-DURATION = 7
-SAMPLES = SAMPLE_RATE * DURATION
 
 desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
 model_folder = os.path.join(desktop_path, "xgboost_feature_new_npy")
