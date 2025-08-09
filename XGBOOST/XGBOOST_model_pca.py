@@ -32,12 +32,13 @@ X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, stratify=y, random_state=42
 )
 
-# Skalowanie i PCA
+# Skalowanie
 scaler = StandardScaler()
 X_train_scaled = scaler.fit_transform(X_train)
 X_test_scaled = scaler.transform(X_test)
 
-pca = PCA(n_components=20, random_state=42)
+# PCA
+pca = PCA(n_components=0.95, svd_solver="full", random_state=42)
 X_train_pca = pca.fit_transform(X_train_scaled)
 X_test_pca = pca.transform(X_test_scaled)
 
@@ -57,12 +58,9 @@ model_folder = get_unique_folder_name(model_folder)
 os.makedirs(model_folder, exist_ok=True)
 
 # PCA analiza
-pca_diag = PCA(n_components="mle", svd_solver="full", random_state=42)
-pca_diag.fit(X_train_scaled)
-
-explained_ratios = pca_diag.explained_variance_ratio_
+explained_ratios = pca.explained_variance_ratio_
 cumulative_var = np.cumsum(explained_ratios)
-n_components_95 = np.argmax(cumulative_var >= 0.95) + 1
+n_components_95 = pca.n_components_
 
 print("\n--- PCA Explainability ---")
 i = 0
@@ -70,13 +68,12 @@ while i < len(explained_ratios) and i < 35:
     print("PC{}: {:.4f}".format(i + 1, explained_ratios[i]))
     i += 1
 
-
-print(f"\nNoise variance: {pca_diag.noise_variance_:.4f}")
+print(f"\nNoise variance: {pca.noise_variance_:.4f}")
 print(f"Sum of explained variance: {np.sum(explained_ratios):.4f}")
 print(f"Liczba komponentów odpowiadających za 95% wariancji: {n_components_95}")
 
 # Główne cechy w PC1 i PC2
-components = pca_diag.components_
+components = pca.components_
 pc1_weights = components[0]
 pc2_weights = components[1]
 
@@ -85,7 +82,6 @@ pc2_df = pd.Series(pc2_weights, index=feature_names).abs().sort_values(ascending
 
 print("\nTop 10 cech wpływających na PC1:")
 print(pc1_df.head(10))
-
 print("\nTop 10 cech wpływających na PC2:")
 print(pc2_df.head(10))
 
@@ -109,7 +105,7 @@ plt.show()
 n_top_components = 20
 cumulative_weights = np.abs(pca.components_[:n_top_components, :]).sum(axis=0)
 cumulative_df = pd.DataFrame({
-    'Feature': feature_names,
+    'Cecha': feature_names,
     'CumulativeInfluence': cumulative_weights
 }).sort_values(by="CumulativeInfluence", ascending=False)
 
@@ -137,12 +133,17 @@ plt.tight_layout()
 plt.savefig(os.path.join(model_folder, "percent_feature_influence.png"))
 plt.show()
 
-
 # Wpływ cech na wszystkie PCA
+pc_columns = []
+pc_idx = 1
+while pc_idx <= pca.n_components_:
+    pc_columns.append(f"PC{pc_idx}")
+    pc_idx += 1
+
 component_weights = pd.DataFrame(
-    np.abs(pca_diag.components_.T),
+    np.abs(pca.components_.T),
     index=feature_names,
-    columns=[f"PC{i+1}" for i in range(pca_diag.n_components_)]
+    columns=pc_columns
 )
 
 plt.figure(figsize=(12, len(feature_names) * 0.25))
@@ -181,10 +182,9 @@ metrics = {
     "F1-score": f1_score(y_test, y_pred),
     "AUC-ROC": roc_auc_score(y_test, y_pred_probs)
 }
-
 pd.DataFrame(metrics, index=[0]).to_csv(os.path.join(model_folder, "classification_metrics.csv"), index=False)
 
-# Historia metryk
+
 history = {"epoch": [], "accuracy": [], "precision": [], "recall": [], "f1_score": [], "auc": []}
 for i in range(1, xgb_model.n_estimators + 1):
     y_proba_iter = xgb_model.predict_proba(X_test_pca, iteration_range=(0, i))[:, 1]
@@ -199,20 +199,37 @@ for i in range(1, xgb_model.n_estimators + 1):
 history_df = pd.DataFrame(history)
 history_df.to_csv(os.path.join(model_folder, "training_history.csv"), index=False)
 
-# Wykresy historii
-def plot_metric_history(df, metric, model_folder):
+
+def plot_single_metric(df, metric, title, filename):
     plt.figure()
-    plt.plot(df["epoch"], df[metric])
+    plt.plot(df["epoch"], df[metric], label=metric.capitalize())
     plt.xlabel("Iteracja Boostingu")
-    plt.ylabel(metric.upper())
-    plt.title(f"{metric.upper()} XGBOOST PCA")
+    plt.ylabel("Wartość metryki")
+    plt.ylim(0, 1)
+    plt.title(title)
+    plt.legend()
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig(os.path.join(model_folder, f"{metric}_history.png"))
+    plt.savefig(os.path.join(model_folder, filename))
     plt.show()
 
-for metric in ["accuracy", "precision", "recall", "f1_score", "auc"]:
-    plot_metric_history(history_df, metric, model_folder)
+def plot_metric_pair(df, metric1, metric2, title, filename):
+    plt.figure()
+    plt.plot(df["epoch"], df[metric1], label=metric1.capitalize())
+    plt.plot(df["epoch"], df[metric2], label=metric2.capitalize())
+    plt.xlabel("Iteracja Boostingu")
+    plt.ylabel("Wartość metryki")
+    plt.ylim(0, 1)
+    plt.title(title)
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(os.path.join(model_folder, filename))
+    plt.show()
+
+plot_single_metric(history_df, "accuracy", "Accuracy — XGBOOST PCA", "accuracy_history.png")
+plot_metric_pair(history_df, "precision", "recall", "Precision i Recall — XGBOOST PCA", "precision_recall_history.png")
+plot_metric_pair(history_df, "f1_score", "auc", "F1 i AUC — XGBOOST PCA", "f1_auc_history.png")
 
 # Wykresy końcowe
 def plot_roc_curve():
