@@ -10,6 +10,7 @@ from sklearn.utils import compute_class_weight, shuffle
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 from tensorflow.keras.layers import Dense, Dropout
 from tensorflow.keras.regularizers import l2
+import time
 
 # Ścieżki do danych cech
 desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
@@ -112,6 +113,8 @@ early_stop = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=
 reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=2, min_lr=1e-6, verbose=1)
 
 # Trening
+start_time = time.time()
+
 history = model.fit(
     train_dataset,
     validation_data=val_dataset,
@@ -119,6 +122,13 @@ history = model.fit(
     class_weight=class_weight_dict,
     callbacks=[early_stop, reduce_lr]
 )
+training_time = time.time() - start_time
+print(f"Czas treningu: {training_time:.2f} sekund ({training_time/60:.2f} minut)")
+time_df = pd.DataFrame({
+    "training_time_sec": [training_time],
+    "training_time_min": [training_time / 60]
+})
+time_df.to_csv(os.path.join(model_folder, "training_time.csv"), index=False)
 
 # Zapis modelu i skalera
 model.save(os.path.join(model_folder, "mlp_model.h5"))
@@ -138,6 +148,18 @@ model_info = (
 
 
 def plot_metrics(history, model_info, save_path):
+
+    #powiększenie czcionek
+    plt.rcParams.update({
+        "font.size": 18,         # rozmiar ogólny
+        "axes.titlesize": 20,    # tytuły wykresów
+        "axes.labelsize": 18,    # etykiety osi
+        "xtick.labelsize": 16,   # etykiety osi X
+        "ytick.labelsize": 16,   # etykiety osi Y
+        "legend.fontsize": 16,   # legenda
+        "figure.titlesize": 20   # tytuł całej figury
+    })
+
     metrics = [
         ("accuracy", "Accuracy"),
         ("loss", "Loss"),
@@ -162,7 +184,7 @@ def plot_metrics(history, model_info, save_path):
         axes[i].legend()
 
     # Tytuł wykresu
-    fig.suptitle(model_info, fontsize=10)
+    fig.suptitle(model_info, fontsize=18)
     plt.tight_layout(rect=[0, 0.03, 1, 0.97])
 
     plt.savefig(save_path)
