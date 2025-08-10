@@ -18,7 +18,7 @@ fake_feature_path = os.path.join(desktop_path, "XGBOOST_DATASET", "Feature", "FA
 
 # Parametry
 batch_size = 8
-epochs = 20
+epochs = 30
 
 # Folder zapisu
 def get_unique_folder_name(base_path):
@@ -86,16 +86,16 @@ class F1Score(tf.keras.metrics.Metric):
 
 input_dim = X.shape[1]
 model = tf.keras.Sequential([
-    Dense(256, activation='relu', kernel_regularizer=l2(0.001), input_shape=(input_dim,)),
+    Dense(256, activation='relu', kernel_regularizer=l2(0.0001), input_shape=(input_dim,)),
+    Dropout(0.5),
+    Dense(128, activation='relu', kernel_regularizer=l2(0.0001)),
+    Dropout(0.3),
+    Dense(128, activation='relu', kernel_regularizer=l2(0.0001)),
 
-    Dense(128, activation='relu', kernel_regularizer=l2(0.001)),
+    Dense(64, activation='relu', kernel_regularizer=l2(0.0001)),
 
-    Dense(128, activation='relu', kernel_regularizer=l2(0.001)),
+    Dense(32, activation='relu', kernel_regularizer=l2(0.0001)),
 
-    Dense(64, activation='relu', kernel_regularizer=l2(0.001)),
-
-    Dense(32, activation='relu', kernel_regularizer=l2(0.001)),
-    Dropout(0.2),
 
     Dense(1, activation='sigmoid')
 ])
@@ -136,28 +136,41 @@ model_info = (
     f"Wejście: cechy z XGBoost ({input_dim})"
 )
 
-# Wykresy
-def plot_metric(metric_name, label, title, filename):
-    epochs = range(1, len(history.history[metric_name]) + 1)
-    plt.figure(figsize=(8, 5))
-    plt.plot(epochs, history.history[metric_name], label=f"Train {label}", marker="o")
-    plt.plot(epochs, history.history[f"val_{metric_name}"], label=f"Validation {label}", marker="o")
-    plt.xlabel("Epoki")
-    plt.ylabel(label)
-    plt.title(title)
-    plt.legend()
-    plt.grid()
-    plt.xticks(list(epochs))
-    plt.figtext(0.5, 0.05, model_info, ha="center", fontsize=9, bbox={"facecolor": "white", "alpha": 0.8, "pad": 5})
-    plt.tight_layout(rect=[0, 0.1, 1, 0.95])
-    plt.savefig(os.path.join(model_folder, filename))
+
+def plot_metrics(history, model_info, save_path):
+    metrics = [
+        ("accuracy", "Accuracy"),
+        ("loss", "Loss"),
+        ("precision", "Precision"),
+        ("recall", "Recall"),
+        ("f1_score", "F1-score"),
+        ("auc", "AUC"),
+    ]
+
+    fig, axes = plt.subplots(3, 2, figsize=(12, 12))
+    axes = axes.ravel()
+
+    epochs = range(1, len(history["accuracy"]) + 1)
+
+    for i, (metric, title) in enumerate(metrics):
+        axes[i].plot(epochs, history[metric], label="Treningowa", marker="o")
+        axes[i].plot(epochs, history[f"val_{metric}"], label="Walidacyjna", marker="o")
+        axes[i].set_title(title)
+        axes[i].set_xlabel("Epoki")
+        axes[i].set_ylabel(title)
+        axes[i].grid(True)
+        axes[i].legend()
+
+    # Tytuł wykresu
+    fig.suptitle(model_info, fontsize=10)
+    plt.tight_layout(rect=[0, 0.03, 1, 0.97])
+
+    plt.savefig(save_path)
     plt.close()
 
-plot_metric("accuracy", "Accuracy", "Dokładność treningowa i walidacyjna", "accuracy_plot.png")
-plot_metric("loss", "Loss", "Strata treningowa i walidacyjna", "loss_plot.png")
-plot_metric("precision", "Precision", "Precyzja treningowa i walidacyjna", "precision_plot.png")
-plot_metric("recall", "Recall", "Czułość treningowa i walidacyjna", "recall_plot.png")
-plot_metric("f1_score", "F1-score", "F1-score treningowy i walidacyjny", "f1_score_plot.png")
-plot_metric("auc", "AUC", "AUC treningowe i walidacyjne", "auc_plot.png")
+
+# Po treningu modelu:
+history_df = pd.DataFrame(history.history)
+plot_metrics(history_df, model_info, os.path.join(model_folder, "metrics.png"))
 
 print(f"\n Zakończono. Wszystko zapisane w: {model_folder}")

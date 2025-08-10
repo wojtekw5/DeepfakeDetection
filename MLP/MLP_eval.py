@@ -3,12 +3,12 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.metrics import confusion_matrix, roc_curve, auc
+from sklearn.metrics import confusion_matrix, roc_curve, auc, precision_recall_curve, average_precision_score
 import csv
 import pickle
 
 desktop_path = r"C:\Users\wojtek\Desktop"
-model_folder_name = "mlp_model_npy"
+model_folder_name = "mlp_model_npy_8"
 model_folder = os.path.join(desktop_path, model_folder_name)
 model_path = os.path.join(model_folder, "mlp_model.h5")
 real_features_path = os.path.join(desktop_path, "XGBOOST_DATASET", "Feature_EVAL", "REAL", "features.npy")
@@ -93,6 +93,23 @@ def plot_roc_curve(y_val, y_pred_probs, folder_path):
     plt.savefig(os.path.join(folder_path, "roc_curve.png"))
     plt.show()
 
+def plot_precision_recall_curve(y_val, y_pred_probs, folder_path):
+    precision, recall, _ = precision_recall_curve(y_val, y_pred_probs)
+    ap = average_precision_score(y_val, y_pred_probs)
+
+    plt.figure(figsize=(8, 5))
+    plt.plot(recall, precision, label=f"Precision–Recall (AP = {ap:.2f})")
+    plt.xlabel("Recall")
+    plt.ylabel("Precision")
+    plt.title("Krzywa Precision–Recall")
+    plt.legend(loc="lower left")
+    plt.grid()
+
+    save_path = os.path.join(folder_path, "precision_recall_curve.png")
+    plt.savefig(save_path)
+    plt.show()
+
+
 def save_predictions_to_csv(filenames, y_val, y_pred, y_pred_probs, folder_path):
     output_csv_file = os.path.join(folder_path, "predictions.csv")
     headers = ['Filename', 'Real_Probability', 'Fake_Probability', 'Predicted_Label', 'Actual_Label', 'Classification', 'Accuracy_Status']
@@ -120,6 +137,7 @@ def save_predictions_to_csv(filenames, y_val, y_pred, y_pred_probs, folder_path)
 
 plot_confusion_matrix(y_val, y_pred, validation_folder)
 plot_roc_curve(y_val, y_pred_probs, validation_folder)
+plot_precision_recall_curve(y_val, y_pred_probs, validation_folder)
 save_predictions_to_csv(filenames, y_val, y_pred, y_pred_probs, validation_folder)
 
 print(f"\n Wszystko zapisane w folderze: {validation_folder}")
