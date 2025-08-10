@@ -91,7 +91,6 @@ model = tf.keras.Sequential([
     Dropout(0.5),
     Dense(128, activation='relu', kernel_regularizer=l2(0.0001)),
     Dropout(0.3),
-    Dense(128, activation='relu', kernel_regularizer=l2(0.0001)),
 
     Dense(64, activation='relu', kernel_regularizer=l2(0.0001)),
 
