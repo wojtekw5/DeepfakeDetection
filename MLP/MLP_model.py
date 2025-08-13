@@ -47,15 +47,19 @@ y_fake = np.ones(X_fake.shape[0])
 X = np.concatenate((X_real, X_fake), axis=0)
 y = np.concatenate((y_real, y_fake), axis=0)
 
-# Shuffle i normalizacja
+# Shuffle
 X, y = shuffle(X, y, random_state=42)
-scaler = StandardScaler()
-X = scaler.fit_transform(X)
 
 # Split
 X_train, X_val, y_train, y_val = train_test_split(
     X, y, test_size=0.2, stratify=y, random_state=42
 )
+
+# Normalizacja tylko na train, potem transform na val
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_val = scaler.transform(X_val)
+
 
 # class_weights
 class_weights = compute_class_weight("balanced", classes=np.unique(y), y=y)

@@ -9,6 +9,7 @@ from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropou
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 from sklearn.utils import shuffle
+import time
 
 img_size = (80, 264)
 batch_size = 32
@@ -144,9 +145,19 @@ reduce_lr = ReduceLROnPlateau(
     verbose=1
 )
 
-# trenowanie modelu
+# Trening
+start_time = time.time()
+
 history = model.fit(train_dataset, epochs=epochs, validation_data=val_dataset,
                     class_weight=class_weight_dict, callbacks=[early_stop, reduce_lr])
+
+training_time = time.time() - start_time
+print(f"Czas treningu: {training_time:.2f} sekund ({training_time/60:.2f} minut)")
+time_df = pd.DataFrame({
+    "training_time_sec": [training_time],
+    "training_time_min": [training_time / 60]
+})
+time_df.to_csv(os.path.join(model_folder, "training_time.csv"), index=False)
 
 # zapis modelu
 model_path = os.path.join(model_folder, "cnn_fake_detector_npy.h5")
@@ -171,114 +182,50 @@ model_info = (
     f"Filtry: {filters_info}   "
 )
 
-# Accuracy
-def plot_accuracy(history, folder):
-    epochs = range(1, len(history.history['accuracy']) + 1)
-    plt.figure(figsize=(8, 5))
-    plt.plot(epochs, history.history['accuracy'], label="Train Accuracy", marker="o")
-    plt.plot(epochs, history.history['val_accuracy'], label="Validation Accuracy", marker="o")
-    plt.xlabel("Epoki")
-    plt.ylabel("Dokładność")
-    plt.legend()
-    plt.grid()
-    plt.title("Dokładność treningowa i walidacyjna")
-    plt.xticks(list(epochs))
-    plt.subplots_adjust(bottom=0.2)  # Zwiększenie miejsca na dole
-    plt.figtext(0.5, 0.05, model_info, ha="center", fontsize=10, bbox={"facecolor": "white", "alpha": 0.8, "pad": 5})
-    plt.savefig(os.path.join(folder, "accuracy_plot.png"))
+def plot_metrics(history_df, model_info, save_path):
+
+    #powiększenie czcionek
+    plt.rcParams.update({
+        "font.size": 18,         # rozmiar ogólny
+        "axes.titlesize": 20,    # tytuły wykresów
+        "axes.labelsize": 18,    # etykiety osi
+        "xtick.labelsize": 16,   # etykiety osi X
+        "ytick.labelsize": 16,   # etykiety osi Y
+        "legend.fontsize": 16,   # legenda
+        "figure.titlesize": 20   # tytuł całej figury
+    })
+
+    metrics = [
+        ("accuracy", "Accuracy"),
+        ("loss", "Loss"),
+        ("precision", "Precision"),
+        ("recall", "Recall"),
+        ("f1_score", "F1-score"),
+        ("auc", "AUC"),
+    ]
+
+    fig, axes = plt.subplots(3, 2, figsize=(12, 12))
+    axes = axes.ravel()
+
+    epochs = range(1, len(history_df["accuracy"]) + 1)
+
+    for i, (metric, title) in enumerate(metrics):
+        axes[i].plot(epochs, history_df[metric], label="Treningowa", marker="o")
+        axes[i].plot(epochs, history_df[f"val_{metric}"], label="Walidacyjna", marker="o")
+        axes[i].set_title(title)
+        axes[i].set_xlabel("Epoki")
+        axes[i].set_ylabel(title)
+        axes[i].grid(True)
+        axes[i].legend()
+
+    fig.suptitle(model_info, fontsize=18)
+    plt.tight_layout(rect=[0, 0.03, 1, 0.97])
+    plt.savefig(save_path, dpi=150)
+    plt.show()
     plt.close()
 
-# Loss
-def plot_loss(history, folder):
-    epochs = range(1, len(history.history['loss']) + 1)
-    plt.figure(figsize=(8, 5))
-    plt.plot(epochs, history.history['loss'], label="Train Loss", marker="o")
-    plt.plot(epochs, history.history['val_loss'], label="Validation Loss", marker="o")
-    plt.xlabel("Epoki")
-    plt.ylabel("Strata")
-    plt.legend()
-    plt.grid()
-    plt.title("Strata treningowa i walidacyjna")
-    plt.xticks(list(epochs))
-    plt.subplots_adjust(bottom=0.2)  # Zwiększenie miejsca na dole
-    plt.figtext(0.5, 0.05, model_info, ha="center", fontsize=10, bbox={"facecolor": "white", "alpha": 0.8, "pad": 5})
-    plt.savefig(os.path.join(folder, "loss_plot.png"))
-    plt.close()
+history_df = pd.DataFrame(history.history)
+plot_metrics(history_df, model_info, os.path.join(model_folder, "metrics.png"))
 
-# Precision
-def plot_precision(history, folder):
-    epochs = range(1, len(history.history['precision']) + 1)
-    plt.figure(figsize=(8, 5))
-    plt.plot(epochs, history.history['precision'], label="Train Precision", marker="o")
-    plt.plot(epochs, history.history['val_precision'], label="Validation Precision", marker="o")
-    plt.xlabel("Epoki")
-    plt.ylabel("Precision")
-    plt.legend()
-    plt.grid()
-    plt.title("Precyzja (Precision) treningowa i walidacyjna")
-    plt.xticks(list(epochs))
-    plt.subplots_adjust(bottom=0.2)  # Zwiększenie miejsca na dole
-    plt.figtext(0.5, 0.05, model_info, ha="center", fontsize=10, bbox={"facecolor": "white", "alpha": 0.8, "pad": 5})
-    plt.savefig(os.path.join(folder, "precision_plot.png"))
-    plt.close()
-
-# Recall
-def plot_recall(history, folder):
-    epochs = range(1, len(history.history['recall']) + 1)
-    plt.figure(figsize=(8, 5))
-    plt.plot(epochs, history.history['recall'], label="Train Recall", marker="o")
-    plt.plot(epochs, history.history['val_recall'], label="Validation Recall", marker="o")
-    plt.xlabel("Epoki")
-    plt.ylabel("Recall")
-    plt.legend()
-    plt.grid()
-    plt.title("Czułość (Recall) treningowa i walidacyjna")
-    plt.xticks(list(epochs))
-    plt.subplots_adjust(bottom=0.2)  # Zwiększenie miejsca na dole
-    plt.figtext(0.5, 0.05, model_info, ha="center", fontsize=10, bbox={"facecolor": "white", "alpha": 0.8, "pad": 5})
-    plt.savefig(os.path.join(folder, "recall_plot.png"))
-    plt.close()
-
-# F1-score
-def plot_f1(history, folder):
-    epochs = range(1, len(history.history['f1_score']) + 1)
-    plt.figure(figsize=(8, 5))
-    plt.plot(epochs, history.history['f1_score'], label="Train F1-score", marker="o")
-    plt.plot(epochs, history.history['val_f1_score'], label="Validation F1-score", marker="o")
-    plt.xlabel("Epoki")
-    plt.ylabel("F1-score")
-    plt.legend()
-    plt.grid()
-    plt.title("F1-score treningowy i walidacyjny")
-    plt.xticks(list(epochs))
-    plt.subplots_adjust(bottom=0.2)  # Zwiększenie miejsca na dole
-    plt.figtext(0.5, 0.05, model_info, ha="center", fontsize=10, bbox={"facecolor": "white", "alpha": 0.8, "pad": 5})
-    plt.savefig(os.path.join(folder, "f1_score_plot.png"))
-    plt.close()
-
-# AUC
-def plot_auc(history, folder):
-    epochs = range(1, len(history.history['auc']) + 1)
-    plt.figure(figsize=(8, 5))
-    plt.plot(epochs, history.history['auc'], label="Train AUC", marker="o")
-    plt.plot(epochs, history.history['val_auc'], label="Validation AUC", marker="o")
-    plt.xlabel("Epoki")
-    plt.ylabel("AUC")
-    plt.legend()
-    plt.grid()
-    plt.title("AUC treningowe i walidacyjne")
-    plt.xticks(list(epochs))
-    plt.subplots_adjust(bottom=0.2)  # Zwiększenie miejsca na dole
-    plt.figtext(0.5, 0.05, model_info, ha="center", fontsize=10, bbox={"facecolor": "white", "alpha": 0.8, "pad": 5})
-    plt.savefig(os.path.join(folder, "auc_plot.png"))
-    plt.close()
-
-# generowanie wszystkich wykresów
-plot_accuracy(history, model_folder)
-plot_loss(history, model_folder)
-plot_precision(history, model_folder)
-plot_recall(history, model_folder)
-plot_f1(history, model_folder)
-plot_auc(history, model_folder)
 
 print(f"⚪ Zakończono")
