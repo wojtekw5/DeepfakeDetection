@@ -195,18 +195,9 @@ pd.DataFrame({
     "training_time_min": [training_time / 60]
 }).to_csv(os.path.join(model_folder, "training_time.csv"), index=False)
 
-# Metryki końcowe
+
 y_pred = xgb_model.predict(X_test_pca)
 y_pred_probs = xgb_model.predict_proba(X_test_pca)[:, 1]
-
-metrics = {
-    "Accuracy": accuracy_score(y_test, y_pred),
-    "Precision": precision_score(y_test, y_pred),
-    "Recall": recall_score(y_test, y_pred),
-    "F1-score": f1_score(y_test, y_pred),
-    "AUC-ROC": roc_auc_score(y_test, y_pred_probs)
-}
-pd.DataFrame(metrics, index=[0]).to_csv(os.path.join(model_folder, "classification_metrics.csv"), index=False)
 
 
 history = {
