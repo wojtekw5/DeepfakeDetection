@@ -9,9 +9,9 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.metrics import (
-    accuracy_score, precision_score, recall_score, f1_score, roc_auc_score,
-    confusion_matrix, roc_curve, precision_recall_curve
+    accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, log_loss
 )
+import time
 
 # Ścieżki i dane
 desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
@@ -57,19 +57,39 @@ model_folder = os.path.join(desktop_path, "xgboost_feature_pca")
 model_folder = get_unique_folder_name(model_folder)
 os.makedirs(model_folder, exist_ok=True)
 
+pca_folder = os.path.join(model_folder, "pca_analysis")
+os.makedirs(pca_folder, exist_ok=True)
+
+
 # PCA analiza
 explained_ratios = pca.explained_variance_ratio_
 cumulative_var = np.cumsum(explained_ratios)
 n_components_95 = pca.n_components_
 
-print("\n--- PCA Explainability ---")
-i = 0
-while i < len(explained_ratios) and i < 35:
-    print("PC{}: {:.4f}".format(i + 1, explained_ratios[i]))
-    i += 1
+# PCA Explainability do CSV
+pca_explain_df = pd.DataFrame({
+    "PC": [f"PC{i+1}" for i in range(len(explained_ratios))],
+    "ExplainedVariance": explained_ratios
+})
+
+pca_explain_df = pca_explain_df.head(35)
+
+# + noise variance i suma
+extra_rows = pd.DataFrame({
+    "PC": ["NoiseVariance", "SumExplainedVariance", "NComponents_95pct"],
+    "ExplainedVariance": [pca.noise_variance_,
+                          np.sum(explained_ratios),
+                          pca.n_components_]
+})
+
+pca_explain_df = pd.concat([pca_explain_df, extra_rows], ignore_index=True)
+
+# Zapis do CSV
+pca_explain_df.to_csv(os.path.join(pca_folder, "pca_explainability.csv"), index=False)
+
 
 print(f"\nNoise variance: {pca.noise_variance_:.4f}")
-print(f"Sum of explained variance: {np.sum(explained_ratios):.4f}")
+print(f"Suma explained variance: {np.sum(explained_ratios):.4f}")
 print(f"Liczba komponentów odpowiadających za 95% wariancji: {n_components_95}")
 
 # Główne cechy w PC1 i PC2
@@ -80,13 +100,8 @@ pc2_weights = components[1]
 pc1_df = pd.Series(pc1_weights, index=feature_names).abs().sort_values(ascending=False)
 pc2_df = pd.Series(pc2_weights, index=feature_names).abs().sort_values(ascending=False)
 
-print("\nTop 10 cech wpływających na PC1:")
-print(pc1_df.head(10))
-print("\nTop 10 cech wpływających na PC2:")
-print(pc2_df.head(10))
-
-pc1_df.head(20).to_csv(os.path.join(model_folder, "top_features_PC1.csv"))
-pc2_df.head(20).to_csv(os.path.join(model_folder, "top_features_PC2.csv"))
+pc1_df.head(20).to_csv(os.path.join(pca_folder, "top_features_PC1.csv"))
+pc2_df.head(20).to_csv(os.path.join(pca_folder, "top_features_PC2.csv"))
 
 # Wykres explained variance
 plt.figure(figsize=(10, 5))
@@ -98,7 +113,7 @@ plt.ylabel("Stosunek wyjaśnionej wariancji")
 plt.title("Udział wyjaśnionej wariancji przez składowe PCA")
 plt.legend()
 plt.tight_layout()
-plt.savefig(os.path.join(model_folder, "explained_variance_pca.png"))
+plt.savefig(os.path.join(pca_folder, "explained_variance_pca.png"))
 plt.show()
 
 # Skumulowany wpływ cech
@@ -109,20 +124,17 @@ cumulative_df = pd.DataFrame({
     'CumulativeInfluence': cumulative_weights
 }).sort_values(by="CumulativeInfluence", ascending=False)
 
-print("\nTop 10 cech wg skumulowanego wpływu na pierwsze 20 komponentów PCA:")
-print(cumulative_df.head(10))
-
-cumulative_df.to_csv(os.path.join(model_folder, "cumulative_feature_influence.csv"), index=False)
+cumulative_df.to_csv(os.path.join(pca_folder, "cumulative_feature_influence.csv"), index=False)
 
 # Zmiana wpływu na %
 cumulative_df["PercentInfluence"] = 100 * cumulative_df["CumulativeInfluence"] / cumulative_df["CumulativeInfluence"].sum()
-cumulative_df.to_csv(os.path.join(model_folder, "percent_feature_influence.csv"), index=False)
+cumulative_df.to_csv(os.path.join(pca_folder, "percent_feature_influence.csv"), index=False)
 
 # Wykres procentowego wpływu
 plt.figure(figsize=(10, len(feature_names) * 0.3))
 sns.barplot(
     data=cumulative_df.sort_values(by="PercentInfluence", ascending=False),
-    y='Feature',
+    y='Cecha',
     x='PercentInfluence',
     color='steelblue'
 )
@@ -130,7 +142,7 @@ plt.title('Skumulowany wpływ cech na pierwsze 20 komponentów PCA w %')
 plt.xlabel('Wpływ [%]')
 plt.ylabel('Cecha')
 plt.tight_layout()
-plt.savefig(os.path.join(model_folder, "percent_feature_influence.png"))
+plt.savefig(os.path.join(pca_folder, "percent_feature_influence.png"))
 plt.show()
 
 # Wpływ cech na wszystkie PCA
@@ -152,24 +164,36 @@ plt.title("Wpływ cech na główne składowe PCA")
 plt.xlabel("Składowa główna (PC)")
 plt.ylabel("Oryginalna cecha")
 plt.tight_layout()
-plt.savefig(os.path.join(model_folder, "feature_vs_pc_heatmap.png"))
+plt.savefig(os.path.join(pca_folder, "feature_vs_pc_heatmap.png"))
 plt.show()
 
-# Trening modelu
+
 xgb_model = xgb.XGBClassifier(
-    n_estimators=2000,
-    max_depth=6,
-    learning_rate=0.01,
-    subsample=0.7,
-    colsample_bytree=0.8,
-    gamma=0.1,
-    reg_alpha=0.01,
-    reg_lambda=1,
+    n_estimators=1000,
+    max_depth=3,
+    learning_rate=0.02,
+    subsample=0.6,
+    colsample_bytree=0.6,
+    gamma=0.7,
+    reg_alpha=0.1,
+    reg_lambda=7.0,
     scale_pos_weight=len(y_train[y_train == 0]) / len(y_train[y_train == 1]),
+    use_label_encoder=False,
     eval_metric="logloss"
 )
 
+start_time = time.time()
+
 xgb_model.fit(X_train_pca, y_train)
+
+training_time = time.time() - start_time
+print(f"Czas treningu: {training_time:.2f} sekund ({training_time/60:.2f} minut)")
+
+
+pd.DataFrame({
+    "training_time_sec": [training_time],
+    "training_time_min": [training_time / 60]
+}).to_csv(os.path.join(model_folder, "training_time.csv"), index=False)
 
 # Metryki końcowe
 y_pred = xgb_model.predict(X_test_pca)
@@ -185,89 +209,83 @@ metrics = {
 pd.DataFrame(metrics, index=[0]).to_csv(os.path.join(model_folder, "classification_metrics.csv"), index=False)
 
 
-history = {"epoch": [], "accuracy": [], "precision": [], "recall": [], "f1_score": [], "auc": []}
+history = {
+    "epoch": [],
+    "train_accuracy": [], "val_accuracy": [],
+    "train_precision": [], "val_precision": [],
+    "train_recall": [], "val_recall": [],
+    "train_f1_score": [], "val_f1_score": [],
+    "train_auc": [], "val_auc": [],
+    "train_loss": [], "val_loss": []
+}
+
 for i in range(1, xgb_model.n_estimators + 1):
-    y_proba_iter = xgb_model.predict_proba(X_test_pca, iteration_range=(0, i))[:, 1]
-    y_pred_iter = (y_proba_iter > 0.5).astype(int)
+
+    proba_tr = xgb_model.predict_proba(X_train_pca, iteration_range=(0, i))[:, 1]
+    proba_va = xgb_model.predict_proba(X_test_pca,  iteration_range=(0, i))[:, 1]
+
+    pred_tr  = (proba_tr > 0.5).astype(int)
+    pred_va  = (proba_va > 0.5).astype(int)
+
     history["epoch"].append(i)
-    history["accuracy"].append(accuracy_score(y_test, y_pred_iter))
-    history["precision"].append(precision_score(y_test, y_pred_iter, zero_division=0))
-    history["recall"].append(recall_score(y_test, y_pred_iter))
-    history["f1_score"].append(f1_score(y_test, y_pred_iter))
-    history["auc"].append(roc_auc_score(y_test, y_proba_iter))
+    history["train_accuracy"].append(accuracy_score(y_train, pred_tr))
+    history["val_accuracy"].append(accuracy_score(y_test,  pred_va))
+    history["train_precision"].append(precision_score(y_train, pred_tr, zero_division=0))
+    history["val_precision"].append(precision_score(y_test,  pred_va, zero_division=0))
+    history["train_recall"].append(recall_score(y_train, pred_tr))
+    history["val_recall"].append(recall_score(y_test,  pred_va))
+    history["train_f1_score"].append(f1_score(y_train, pred_tr))
+    history["val_f1_score"].append(f1_score(y_test,  pred_va))
+    history["train_auc"].append(roc_auc_score(y_train, proba_tr))
+    history["val_auc"].append(roc_auc_score(y_test,  proba_va))
+    history["train_loss"].append(log_loss(y_train, proba_tr, labels=[0, 1]))
+    history["val_loss"].append(log_loss(y_test,  proba_va, labels=[0, 1]))
 
 history_df = pd.DataFrame(history)
 history_df.to_csv(os.path.join(model_folder, "training_history.csv"), index=False)
 
 
-def plot_single_metric(df, metric, title, filename):
-    plt.figure()
-    plt.plot(df["epoch"], df[metric], label=metric.capitalize())
-    plt.xlabel("Iteracja Boostingu")
-    plt.ylabel("Wartość metryki")
-    plt.ylim(0, 1)
-    plt.title(title)
-    plt.legend()
-    plt.grid(True)
+def plot_metrics(df, save_path):
+    plt.rcParams.update({
+        "font.size": 18,
+        "axes.titlesize": 20,
+        "axes.labelsize": 18,
+        "xtick.labelsize": 16,
+        "ytick.labelsize": 16,
+        "legend.fontsize": 16,
+        "figure.titlesize": 20
+    })
+
+    metrics = [
+        ("accuracy", "Accuracy"),
+        ("loss", "Loss"),
+        ("precision", "Precision"),
+        ("recall", "Recall"),
+        ("f1_score", "F1-score"),
+        ("auc", "AUC"),
+    ]
+
+    fig, axes = plt.subplots(3, 2, figsize=(12, 12))
+    axes = axes.ravel()
+    epochs = df["epoch"].values
+
+    for i, (key, title) in enumerate(metrics):
+        ax = axes[i]
+        ax.plot(epochs, df[f"train_{key}"], label="Treningowa", marker="o")
+        ax.plot(epochs, df[f"val_{key}"],   label="Walidacyjna", marker="o")
+        ax.set_title(title)
+        ax.set_xlabel("Iteracje boostingu")
+        ax.set_ylabel(title)
+        ax.grid(True)
+        ax.legend()
+
     plt.tight_layout()
-    plt.savefig(os.path.join(model_folder, filename))
+    plt.savefig(save_path)
     plt.show()
+    plt.close()
 
-def plot_metric_pair(df, metric1, metric2, title, filename):
-    plt.figure()
-    plt.plot(df["epoch"], df[metric1], label=metric1.capitalize())
-    plt.plot(df["epoch"], df[metric2], label=metric2.capitalize())
-    plt.xlabel("Iteracja Boostingu")
-    plt.ylabel("Wartość metryki")
-    plt.ylim(0, 1)
-    plt.title(title)
-    plt.legend()
-    plt.grid(True)
-    plt.tight_layout()
-    plt.savefig(os.path.join(model_folder, filename))
-    plt.show()
+plot_metrics(history_df, os.path.join(model_folder, "metrics.png"))
 
-plot_single_metric(history_df, "accuracy", "Accuracy — XGBOOST PCA", "accuracy_history.png")
-plot_metric_pair(history_df, "precision", "recall", "Precision i Recall — XGBOOST PCA", "precision_recall_history.png")
-plot_metric_pair(history_df, "f1_score", "auc", "F1 i AUC — XGBOOST PCA", "f1_auc_history.png")
-
-# Wykresy końcowe
-def plot_roc_curve():
-    fpr, tpr, _ = roc_curve(y_test, y_pred_probs)
-    plt.figure()
-    plt.plot(fpr, tpr, label=f"AUC = {metrics['AUC-ROC']:.2f}")
-    plt.plot([0, 1], [0, 1], linestyle="--")
-    plt.xlabel("Fałszywie pozytywne (%)")
-    plt.ylabel("Prawdziwie pozytywne (%)")
-    plt.title("XGBOOST PCA")
-    plt.legend()
-    plt.savefig(os.path.join(model_folder, "roc_curve.png"))
-    plt.show()
-
-def plot_precision_recall_curve():
-    prec, recall, _ = precision_recall_curve(y_test, y_pred_probs)
-    plt.figure()
-    plt.plot(recall, prec, label="Precision-Recall")
-    plt.xlabel("Recall")
-    plt.ylabel("Precision")
-    plt.title("Precision-Recall XGBOOST PCA")
-    plt.legend()
-    plt.savefig(os.path.join(model_folder, "precision_recall_curve.png"))
-    plt.show()
-
-def plot_confusion_matrix():
-    cm = confusion_matrix(y_test, y_pred)
-    plt.figure(figsize=(6, 6))
-    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=["Real", "Fake"], yticklabels=["Real", "Fake"])
-    plt.xlabel("Predykcja")
-    plt.ylabel("Rzeczywistość")
-    plt.title("Macierz Pomyłek")
-    plt.savefig(os.path.join(model_folder, "confusion_matrix.png"))
-    plt.show()
-
-plot_roc_curve()
-plot_precision_recall_curve()
-plot_confusion_matrix()
 
 # Zapis modelu
 xgb_model.save_model(os.path.join(model_folder, "xgboost_model.json"))

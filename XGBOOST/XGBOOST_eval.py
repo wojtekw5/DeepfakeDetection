@@ -3,7 +3,7 @@ import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.metrics import confusion_matrix, roc_curve
+from sklearn.metrics import confusion_matrix, roc_curve, precision_recall_curve, average_precision_score
 
 
 desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
@@ -91,8 +91,24 @@ def plot_roc_curve(y_test, y_pred_probs, save_path):
     plt.savefig(save_path)
     plt.show()
 
+def plot_precision_recall_curve(y_test, y_pred_probs, save_path):
+    precision, recall, _ = precision_recall_curve(y_test, y_pred_probs)
+    ap = average_precision_score(y_test, y_pred_probs)
+
+    plt.figure()
+    plt.plot(recall, precision, label=f"Precision–Recall (AP = {ap:.2f})")
+    plt.xlabel("Recall")
+    plt.ylabel("Precision")
+    plt.title("Krzywa Precision–Recall")
+    plt.legend()
+    plt.grid(True)
+
+    plt.savefig(save_path)
+    plt.show()
+
 
 plot_confusion_matrix(y_test, y_pred, os.path.join(validation_folder, "confusion_matrix.png"))
 plot_roc_curve(y_test, y_pred_probs, os.path.join(validation_folder, "roc_curve.png"))
+plot_precision_recall_curve(y_test, y_pred_probs, os.path.join(validation_folder, "precision_recall_curve.png"))
 
 print(f"\n Wyniki zapisane w: {validation_folder}")

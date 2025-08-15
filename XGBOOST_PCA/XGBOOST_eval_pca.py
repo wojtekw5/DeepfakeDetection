@@ -3,13 +3,11 @@ import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.metrics import (confusion_matrix, roc_curve,
-                             accuracy_score, precision_score, recall_score, f1_score, roc_auc_score)
-
+from sklearn.metrics import (confusion_matrix, roc_curve, precision_recall_curve)
 
 # Ścieżki
 desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
-model_folder = os.path.join(desktop_path, "xgboost_feature_pca")
+model_folder = os.path.join(desktop_path, "xgboost_feature_pca_3")
 validation_folder = os.path.join(model_folder, "validation")
 os.makedirs(validation_folder, exist_ok=True)
 
@@ -94,7 +92,19 @@ def plot_roc_curve():
     plt.savefig(os.path.join(validation_folder, "roc_curve.png"))
     plt.show()
 
+def plot_precision_recall_curve():
+    precision, recall, _ = precision_recall_curve(y_test, y_pred_probs)
+    plt.figure()
+    plt.plot(recall, precision, label="Precision-Recall")
+    plt.xlabel("Recall")
+    plt.ylabel("Precision")
+    plt.title("Precision-Recall Curve")
+    plt.legend()
+    plt.savefig(os.path.join(validation_folder, "precision_recall_curve.png"))
+    plt.show()
+
 plot_confusion_matrix()
 plot_roc_curve()
+plot_precision_recall_curve()
 
 print(f"\n Walidacja zakończona. Wyniki zapisane w: {validation_folder}")
