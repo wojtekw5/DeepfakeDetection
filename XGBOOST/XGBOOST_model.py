@@ -84,16 +84,6 @@ time_df.to_csv(os.path.join(model_folder, "training_time.csv"), index=False)
 y_pred = xgb_model.predict(X_val)
 y_pred_probs = xgb_model.predict_proba(X_val)[:, 1]
 
-metrics = {
-    "Accuracy": accuracy_score(y_val, y_pred),
-    "Precision": precision_score(y_val, y_pred),
-    "Recall": recall_score(y_val, y_pred),
-    "F1-score": f1_score(y_val, y_pred),
-    "AUC-ROC": roc_auc_score(y_val, y_pred_probs)
-}
-metrics_df = pd.DataFrame(metrics, index=[0])
-metrics_df.to_csv(os.path.join(model_folder, "classification_metrics_val.csv"), index=False)
-
 history = {
     "epoch": [],
     "train_accuracy": [], "val_accuracy": [],
