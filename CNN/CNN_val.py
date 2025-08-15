@@ -125,7 +125,7 @@ def save_predictions_to_csv(filenames, y_true, y_hat, y_scores, out_dir):
     headers = ['Filename', 'Real_Probability', 'Fake_Probability',
                'Predicted_Label', 'Actual_Label', 'Classification', 'Accuracy_Status']
     with open(output_csv_file, mode='w', newline='') as file:
-        writer = csv.writer(file)a
+        writer = csv.writer(file)
         writer.writerow(headers)
         for i in range(len(filenames)):
             real_prob = float(1 - y_scores[i])
