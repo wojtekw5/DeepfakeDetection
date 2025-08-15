@@ -114,7 +114,7 @@ model = tf.keras.Sequential([
     Conv2D(32, (3, 3), activation='relu', padding='same', kernel_regularizer=l2(0.002), input_shape=(80, 264, 1)),
     MaxPooling2D(2, 2),
 
-    Conv2D(64, (3, 3), activation='relu', kernel_regularizer=l2(0.002)),
+    Conv2D(64, (3, 3), activation='relu', padding='same', kernel_regularizer=l2(0.002)),
     MaxPooling2D(2, 2),
 
     Conv2D(128, (3, 3), activation='relu', padding='same', kernel_regularizer=l2(0.002)),
