@@ -124,7 +124,6 @@ cumulative_df = pd.DataFrame({
     'CumulativeInfluence': cumulative_weights
 }).sort_values(by="CumulativeInfluence", ascending=False)
 
-cumulative_df.to_csv(os.path.join(pca_folder, "cumulative_feature_influence.csv"), index=False)
 
 # Zmiana wpływu na %
 cumulative_df["PercentInfluence"] = 100 * cumulative_df["CumulativeInfluence"] / cumulative_df["CumulativeInfluence"].sum()
