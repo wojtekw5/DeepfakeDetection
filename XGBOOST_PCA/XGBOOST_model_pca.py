@@ -288,7 +288,6 @@ plot_metrics(history_df, os.path.join(model_folder, "metrics.png"))
 
 
 # Zapis modelu
-xgb_model.save_model(os.path.join(model_folder, "xgboost_model.json"))
 pickle.dump(xgb_model, open(os.path.join(model_folder, "xgboost_model.pkl"), "wb"))
 pickle.dump(scaler, open(os.path.join(model_folder, "scaler.pkl"), "wb"))
 pickle.dump(pca, open(os.path.join(model_folder, "pca.pkl"), "wb"))

@@ -216,7 +216,6 @@ plot_feature_importance(xgb_model, feature_names, model_folder)
 
 # Zapis modelu i skalera
 pickle.dump(scaler, open(os.path.join(model_folder, "scaler.pkl"), "wb"))
-xgb_model.save_model(os.path.join(model_folder, "xgboost_model.json"))
 pickle.dump(xgb_model, open(os.path.join(model_folder, "xgboost_model.pkl"), "wb"))
 
 print(f"\n Model i wykresy zapisane w: {model_folder}")
