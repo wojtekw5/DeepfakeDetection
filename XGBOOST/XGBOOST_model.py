@@ -165,54 +165,71 @@ def plot_metrics(history_df, model_info, save_path):
     plt.show()
     plt.close()
 
-model_info = f"XGBoost | n_estimators={xgb_model.n_estimators}, max_depth=6, lr=0.01"
+model_info = f"n_estimators={xgb_model.n_estimators}, max_depth=3, lr=0.02"
 plot_metrics(history_df, model_info, os.path.join(model_folder, "metrics.png"))
 
-def plot_feature_importance(model, feature_names, model_folder):
+def plot_feature_importance_total_gain(model, feature_names, model_folder):
 
     plt.rcParams.update(plt.rcParamsDefault)
 
     booster = model.get_booster()
-    gain = booster.get_score(importance_type="gain")
+
+    # suma redukcji straty
+    total_gain_dict = booster.get_score(importance_type="total_gain")
+    # liczba splitów
     weight = booster.get_score(importance_type="weight")
-    total_gain = sum(gain.values()) if len(gain) > 0 else 1.0
-    normalized_gain = {k: (v / total_gain) * 100 for k, v in gain.items()}
-    sorted_items = sorted(normalized_gain.items(), key=lambda x: x[1], reverse=True)
+
+    # normalizacja do %
+    total_sum = sum(total_gain_dict.values()) if len(total_gain_dict) > 0 else 1.0
+    normalized_total_gain = {k: (v / total_sum) * 100 for k, v in total_gain_dict.items()}
+
+    # sortowanie malejąco
+    sorted_items = sorted(normalized_total_gain.items(), key=lambda x: x[1], reverse=True)
 
     sorted_values = []
     sorted_features = []
     csv_rows = []
 
-    for k, percent_gain in sorted_items:
+    for k, percent_total_gain in sorted_items:
         feature_idx = int(k[1:])  # 'f123' -> 123
-        feature_name = feature_names[feature_idx]
+        feature_name = feature_names[feature_idx] if feature_idx < len(feature_names) else k
+
         sorted_features.append(feature_name)
-        sorted_values.append(percent_gain)
-        split_count = weight.get(k, 0)
+        sorted_values.append(percent_total_gain)
+
+        split_count = int(weight.get(k, 0))
+        raw_total_gain = float(total_gain_dict[k])
+
         csv_rows.append({
             "Cecha": feature_name,
-            "Gain (%)": round(percent_gain, 2),
-            "Gain (surowy)": round(gain[k], 6),
-            "Liczba splitów": int(split_count)
+            "Total Gain (%)": round(percent_total_gain, 2),
+            "Total Gain (surowy)": round(raw_total_gain, 6),
+            "Liczba splitów": split_count
         })
 
-    with open(os.path.join(model_folder, "feature_importance.csv"), 'w', newline='', encoding='utf-8') as f:
-        writer = csv.DictWriter(f, fieldnames=["Cecha", "Gain (%)", "Gain (surowy)", "Liczba splitów"])
+    # 5) Zapis CSV
+    os.makedirs(model_folder, exist_ok=True)
+    csv_path = os.path.join(model_folder, "feature_importance_total_gain.csv")
+    with open(csv_path, 'w', newline='', encoding='utf-8') as f:
+        writer = csv.DictWriter(f, fieldnames=["Cecha", "Total Gain (%)", "Total Gain (surowy)", "Liczba splitów"])
         writer.writeheader()
         writer.writerows(csv_rows)
 
+    # 6) Wykres
     plt.figure(figsize=(10, 6))
     plt.barh(sorted_features, sorted_values)
-    plt.xlabel("Gain (%)")
+    plt.xlabel("Total Gain (%)")
     plt.ylabel("Cechy")
-    plt.title("Ważność cech [GAIN] %")
+    plt.title("Ważność cech [TOTAL GAIN] – udział w całkowitej redukcji loss")
     plt.gca().invert_yaxis()
     plt.tight_layout()
-    plt.savefig(os.path.join(model_folder, "feature_importance.png"))
+    fig_path = os.path.join(model_folder, "feature_importance_total_gain.png")
+    plt.savefig(fig_path)
     plt.show()
     plt.close()
 
-plot_feature_importance(xgb_model, feature_names, model_folder)
+plot_feature_importance_total_gain(xgb_model, feature_names, model_folder)
+
 
 # Zapis modelu i skalera
 pickle.dump(scaler, open(os.path.join(model_folder, "scaler.pkl"), "wb"))
