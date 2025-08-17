@@ -8,7 +8,7 @@ import csv
 import pickle
 
 desktop_path = r"C:\Users\wojtek\Desktop"
-model_folder_name = "mlp_model_npy_8"
+model_folder_name = "mlp_model_npy"
 model_folder = os.path.join(desktop_path, model_folder_name)
 model_path = os.path.join(model_folder, "mlp_model.h5")
 real_features_path = os.path.join(desktop_path, "XGBOOST_DATASET", "Feature_EVAL", "REAL", "features.npy")
@@ -84,10 +84,10 @@ def plot_roc_curve(y_val, y_pred_probs, folder_path):
     roc_auc = auc(fpr, tpr)
     plt.figure(figsize=(8, 5))
     plt.plot(fpr, tpr, label=f"ROC Curve (AUC = {roc_auc:.2f})")
-    plt.plot([0, 1], [0, 1], linestyle="--")
-    plt.xlabel("False Positive Rate")
-    plt.ylabel("True Positive Rate")
-    plt.title("Krzywa ROC")
+    plt.plot([0, 1], [0, 1], linestyle="--", lw=2, label="Losowy klasyfikator")
+    plt.xlabel("Wskaźnik fałszywie pozytywnych")
+    plt.ylabel("Wskaźnik prawdziwie pozytywnych (czułość)")
+    plt.title("Krzywa ROC - MLP ")
     plt.legend()
     plt.grid()
     plt.savefig(os.path.join(folder_path, "roc_curve.png"))
@@ -101,7 +101,7 @@ def plot_precision_recall_curve(y_val, y_pred_probs, folder_path):
     plt.plot(recall, precision, label=f"Precision–Recall (AP = {ap:.2f})")
     plt.xlabel("Recall")
     plt.ylabel("Precision")
-    plt.title("Krzywa Precision–Recall")
+    plt.title("Krzywa Precision–Recall - MLP")
     plt.legend(loc="lower left")
     plt.grid()
 

@@ -8,7 +8,7 @@ from tensorflow.keras.metrics import Precision
 import csv
 
 desktop_path = r"C:\Users\wojtek\Desktop"
-model_folder_name = "cnn_model_npy_3"
+model_folder_name = "cnn_model_npy"
 model_folder = os.path.join(desktop_path, model_folder_name)
 model_path = os.path.join(desktop_path, model_folder_name, "cnn_fake_detector_npy.h5")
 val_real_dir = os.path.join(desktop_path, "data_cnn", "val", "real")
@@ -92,12 +92,12 @@ def plot_roc_curve(y_true, y_scores, out_dir):
     fpr, tpr, _ = roc_curve(y_true, y_scores)
     roc_auc = auc(fpr, tpr)
     plt.figure(figsize=(8, 5))
-    plt.plot(fpr, tpr, color="blue", lw=2, label=f"Krzywa ROC (AUC = {roc_auc:.2f})")
-    plt.plot([0, 1], [0, 1], color="gray", linestyle="--", lw=2, label="Losowy klasyfikator")
+    plt.plot(fpr, tpr, lw=2, label=f"Krzywa ROC (AUC = {roc_auc:.2f})")
+    plt.plot([0, 1], [0, 1], linestyle="--", lw=2, label="Losowy klasyfikator")
     plt.xlim([0.0, 1.0]); plt.ylim([0.0, 1.05])
-    plt.xlabel("False Positive Rate")
-    plt.ylabel("True Positive Rate")
-    plt.title("Krzywa ROC - Detekcja FAKE")
+    plt.xlabel("Wskaźnik fałszywie pozytywnych")
+    plt.ylabel("Wskaźnik prawdziwie pozytywnych (czułość)")
+    plt.title("Krzywa ROC - CNN")
     plt.legend(loc="lower right"); plt.grid()
     plt.savefig(os.path.join(out_dir, "roc_curve.png"))
     plt.show()
@@ -106,10 +106,10 @@ def plot_precision_recall_curve_fig(y_true, y_scores, out_dir):
     precision, recall, _ = precision_recall_curve(y_true, y_scores)
     ap = average_precision_score(y_true, y_scores)
     plt.figure(figsize=(8, 5))
-    plt.plot(recall, precision, color="blue", lw=2,
+    plt.plot(recall, precision, lw=2,
              label=f"Precision–Recall (AP = {ap:.2f})")
     plt.xlabel("Recall"); plt.ylabel("Precision")
-    plt.title("Krzywa Precision–Recall - Detekcja FAKE")
+    plt.title("Krzywa Precision–Recall - CNN")
     plt.legend(loc="lower left"); plt.grid()
     plt.savefig(os.path.join(out_dir, "precision_recall_curve.png"))
     plt.show()

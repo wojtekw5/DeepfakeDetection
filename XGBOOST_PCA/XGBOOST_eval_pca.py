@@ -3,11 +3,11 @@ import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.metrics import (confusion_matrix, roc_curve, precision_recall_curve)
+from sklearn.metrics import (confusion_matrix, roc_curve, precision_recall_curve, auc, average_precision_score)
 
 # Ścieżki
 desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
-model_folder = os.path.join(desktop_path, "xgboost_feature_pca_3")
+model_folder = os.path.join(desktop_path, "xgboost_feature_pca")
 validation_folder = os.path.join(model_folder, "validation")
 os.makedirs(validation_folder, exist_ok=True)
 
@@ -79,32 +79,42 @@ def plot_confusion_matrix():
     plt.savefig(os.path.join(validation_folder, "confusion_matrix.png"))
     plt.show()
 
-
-def plot_roc_curve():
+def plot_roc_curve(y_test, y_pred_probs, save_path):
     fpr, tpr, _ = roc_curve(y_test, y_pred_probs)
-    plt.figure()
-    plt.plot(fpr, tpr)
-    plt.plot([0, 1], [0, 1], linestyle="--")
-    plt.xlabel("False Positive Rate")
-    plt.ylabel("True Positive Rate")
-    plt.title("ROC Curve")
-    plt.legend()
-    plt.savefig(os.path.join(validation_folder, "roc_curve.png"))
+    roc_auc = auc(fpr, tpr)
+    plt.figure(figsize=(8, 5))
+    plt.plot(fpr, tpr, lw=2, label=f"Krzywa ROC (AUC = {roc_auc:.2f})")
+    plt.plot([0, 1], [0, 1], linestyle="--", lw=2, label="Losowy klasyfikator")
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel("Wskaźnik fałszywie pozytywnych")
+    plt.ylabel("Wskaźnik prawdziwie pozytywnych (czułość)")
+    plt.title("Krzywa ROC - XGBoost z PCA")
+    plt.legend(loc="lower right")
+    plt.grid()
+    plt.tight_layout()
+    plt.savefig(save_path)
     plt.show()
 
-def plot_precision_recall_curve():
+
+def plot_precision_recall_curve(y_test, y_pred_probs, save_path):
     precision, recall, _ = precision_recall_curve(y_test, y_pred_probs)
+    ap = average_precision_score(y_test, y_pred_probs)
+
     plt.figure()
-    plt.plot(recall, precision, label="Precision-Recall")
+    plt.plot(recall, precision, label=f"Precision–Recall (AP = {ap:.2f})")
     plt.xlabel("Recall")
     plt.ylabel("Precision")
-    plt.title("Precision-Recall Curve")
+    plt.title("Krzywa Precision–Recall - XGBoost z PCA")
     plt.legend()
-    plt.savefig(os.path.join(validation_folder, "precision_recall_curve.png"))
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(save_path)
     plt.show()
 
 plot_confusion_matrix()
-plot_roc_curve()
-plot_precision_recall_curve()
+plot_roc_curve(y_test, y_pred_probs, os.path.join(validation_folder, "roc_curve.png"))
+plot_precision_recall_curve(y_test, y_pred_probs, os.path.join(validation_folder, "precision_recall_curve.png"))
+
 
 print(f"\n Walidacja zakończona. Wyniki zapisane w: {validation_folder}")

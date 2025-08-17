@@ -3,8 +3,7 @@ import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.metrics import confusion_matrix, roc_curve, precision_recall_curve, average_precision_score
-
+from sklearn.metrics import confusion_matrix, roc_curve, precision_recall_curve, average_precision_score, auc
 
 desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
 model_folder = os.path.join(desktop_path, "xgboost_feature_new_npy")
@@ -78,16 +77,19 @@ def plot_confusion_matrix(y_test, y_pred, save_path):
     plt.savefig(save_path)
     plt.show()
 
-
 def plot_roc_curve(y_test, y_pred_probs, save_path):
     fpr, tpr, _ = roc_curve(y_test, y_pred_probs)
-    plt.figure()
-    plt.plot(fpr, tpr, label="ROC Curve")
-    plt.plot([0, 1], [0, 1], linestyle="--")
-    plt.xlabel("False Positive Rate")
-    plt.ylabel("True Positive Rate")
-    plt.title("Krzywa ROC")
-    plt.legend()
+    roc_auc = auc(fpr, tpr)
+    plt.figure(figsize=(8, 5))
+    plt.plot(fpr, tpr, lw=2, label=f"Krzywa ROC (AUC = {roc_auc:.2f})")
+    plt.plot([0, 1], [0, 1], linestyle="--", lw=2, label="Losowy klasyfikator")
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel("Wskaźnik fałszywie pozytywnych")
+    plt.ylabel("Wskaźnik prawdziwie pozytywnych (czułość)")
+    plt.title("Krzywa ROC - XGBoost")
+    plt.legend(loc="lower right")
+    plt.grid()
     plt.savefig(save_path)
     plt.show()
 
@@ -99,7 +101,7 @@ def plot_precision_recall_curve(y_test, y_pred_probs, save_path):
     plt.plot(recall, precision, label=f"Precision–Recall (AP = {ap:.2f})")
     plt.xlabel("Recall")
     plt.ylabel("Precision")
-    plt.title("Krzywa Precision–Recall")
+    plt.title("Krzywa Precision–Recall - XGBoost")
     plt.legend()
     plt.grid(True)
 
