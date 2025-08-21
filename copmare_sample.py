@@ -51,10 +51,10 @@ for orig_path, hifi_path in audio_pairs:
     y_orig = y_orig[:min_len]
     y_hifi = y_hifi[:min_len]
 
-    # Zachowaj waveformy
+    # zachowanie waveformy
     wave_data.append((y_orig, y_hifi, sr_orig, os.path.basename(orig_path)))
 
-    # Oblicz mel-spektrogramy (moc)
+    # liczenie melspektrogramów
     mel_orig = librosa.feature.melspectrogram(
         y=y_orig, sr=sr_orig, n_fft=n_fft, hop_length=hop_length, n_mels=n_mels
     )
