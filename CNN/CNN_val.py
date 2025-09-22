@@ -102,23 +102,9 @@ def plot_roc_curve(y_true, y_scores, out_dir):
     plt.savefig(os.path.join(out_dir, "roc_curve.png"))
     plt.show()
 
-def plot_precision_recall_curve_fig(y_true, y_scores, out_dir):
-    precision, recall, _ = precision_recall_curve(y_true, y_scores)
-    ap = average_precision_score(y_true, y_scores)
-    plt.figure(figsize=(8, 5))
-    plt.plot(recall, precision, lw=2,
-             label=f"Precision–Recall (AP = {ap:.2f})")
-    plt.xlabel("Recall"); plt.ylabel("Precision")
-    plt.title("Krzywa Precision–Recall - CNN")
-    plt.legend(loc="lower left"); plt.grid()
-    plt.savefig(os.path.join(out_dir, "precision_recall_curve.png"))
-    plt.show()
-
 
 plot_confusion_matrix(y_val, y_pred, validation_folder)
 plot_roc_curve(y_val, y_pred_probs, validation_folder)
-plot_precision_recall_curve_fig(y_val, y_pred_probs, validation_folder)
-
 
 def save_predictions_to_csv(filenames, y_true, y_hat, y_scores, out_dir):
     output_csv_file = os.path.join(out_dir, "predictions.csv")

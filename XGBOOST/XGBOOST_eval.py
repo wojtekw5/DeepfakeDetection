@@ -3,7 +3,7 @@ import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.metrics import confusion_matrix, roc_curve, precision_recall_curve, average_precision_score, auc
+from sklearn.metrics import confusion_matrix, roc_curve, auc
 
 desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
 model_folder = os.path.join(desktop_path, "xgboost_feature_new_npy")
@@ -13,12 +13,10 @@ os.makedirs(validation_folder, exist_ok=True)
 model_path = os.path.join(model_folder, "xgboost_model.pkl")
 scaler_path = os.path.join(model_folder, "scaler.pkl")
 
-# Ścieżki do zapisanych cech
 feature_real_folder = os.path.join(desktop_path, "XGBOOST_DATASET", "Feature_EVAL", "REAL")
 feature_fake_folder = os.path.join(desktop_path, "XGBOOST_DATASET", "Feature_EVAL", "FAKE")
 
 
-# Funkcja do wczytywania cech z plików .npy
 def load_features_from_folder(folder_path, label):
     features_path = os.path.join(folder_path, "features.npy")
     filenames_path = os.path.join(folder_path, "filenames.npy")
@@ -35,38 +33,35 @@ def load_features_from_folder(folder_path, label):
     return X, y, filenames
 
 
-# Wczytanie modelu
+
 if not os.path.exists(model_path):
     raise FileNotFoundError("Nie znaleziono modelu!")
 with open(model_path, "rb") as f:
     xgb_model = pickle.load(f)
 print("Model załadowany poprawnie!")
 
-# Wczytanie danych cech
+
 X_real, y_real, filenames_real = load_features_from_folder(feature_real_folder, 0)
 X_fake, y_fake, filenames_fake = load_features_from_folder(feature_fake_folder, 1)
 
-# Połączenie danych
+
 X_test = np.concatenate((X_real, X_fake), axis=0)
 y_test = np.concatenate((y_real, y_fake), axis=0)
 filenames = filenames_real + filenames_fake
 
-# Wczytanie scalera i normalizacja
+
 if not os.path.exists(scaler_path):
     raise FileNotFoundError("Brak pliku scaler.pkl – uruchom ponownie trenowanie modelu!")
 with open(scaler_path, "rb") as f:
     scaler = pickle.load(f)
 print("Scaler załadowany poprawnie!")
 
-# Normalizacja
 X_test = scaler.transform(X_test)
 
-# Predykcja
 y_pred = xgb_model.predict(X_test)
 y_pred_probs = xgb_model.predict_proba(X_test)[:, 1]
 
 
-# Wizualizacje
 def plot_confusion_matrix(y_test, y_pred, save_path):
     cm = confusion_matrix(y_test, y_pred)
     plt.figure(figsize=(6, 6))
@@ -93,24 +88,8 @@ def plot_roc_curve(y_test, y_pred_probs, save_path):
     plt.savefig(save_path)
     plt.show()
 
-def plot_precision_recall_curve(y_test, y_pred_probs, save_path):
-    precision, recall, _ = precision_recall_curve(y_test, y_pred_probs)
-    ap = average_precision_score(y_test, y_pred_probs)
-
-    plt.figure()
-    plt.plot(recall, precision, label=f"Precision–Recall (AP = {ap:.2f})")
-    plt.xlabel("Recall")
-    plt.ylabel("Precision")
-    plt.title("Krzywa Precision–Recall - XGBoost")
-    plt.legend()
-    plt.grid(True)
-
-    plt.savefig(save_path)
-    plt.show()
-
 
 plot_confusion_matrix(y_test, y_pred, os.path.join(validation_folder, "confusion_matrix.png"))
 plot_roc_curve(y_test, y_pred_probs, os.path.join(validation_folder, "roc_curve.png"))
-plot_precision_recall_curve(y_test, y_pred_probs, os.path.join(validation_folder, "precision_recall_curve.png"))
 
 print(f"\n Wyniki zapisane w: {validation_folder}")

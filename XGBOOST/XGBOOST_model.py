@@ -12,12 +12,10 @@ from sklearn.metrics import (
 import csv
 import time
 
-# Ścieżki do gotowych cech
 desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
 real_feature_path = os.path.join(desktop_path, "XGBOOST_DATASET", "Feature", "REAL")
 fake_feature_path = os.path.join(desktop_path, "XGBOOST_DATASET", "Feature", "FAKE")
 
-# Wczytywanie cech i nazw
 X_real = np.load(os.path.join(real_feature_path, "features.npy"))
 X_fake = np.load(os.path.join(fake_feature_path, "features.npy"))
 feature_names = np.load(os.path.join(real_feature_path, "feature_names.npy"))
@@ -25,7 +23,6 @@ feature_names = np.load(os.path.join(real_feature_path, "feature_names.npy"))
 y_real = np.zeros(X_real.shape[0])
 y_fake = np.ones(X_fake.shape[0])
 
-# Łączenie danych
 X = np.concatenate((X_real, X_fake), axis=0)
 y = np.concatenate((y_real, y_fake), axis=0)
 
@@ -37,7 +34,6 @@ scaler = StandardScaler()
 X_train = scaler.fit_transform(X_train)
 X_val   = scaler.transform(X_val)
 
-# Unikalny folder na wyniki
 def get_unique_folder_name(base_path):
     if not os.path.exists(base_path):
         return base_path
@@ -52,12 +48,11 @@ model_folder = os.path.join(desktop_path, "xgboost_feature_new_npy")
 model_folder = get_unique_folder_name(model_folder)
 os.makedirs(model_folder, exist_ok=True)
 
-# Trening modelu XGBoost
 xgb_model = xgb.XGBClassifier(
     n_estimators=1000,
     max_depth=3,
     learning_rate=0.02,
-    subsample=0.6,
+    subsample=0.9,
     colsample_bytree=0.6,
     gamma=0.7,
     reg_alpha=0.1,
@@ -207,7 +202,7 @@ def plot_feature_importance_total_gain(model, feature_names, model_folder):
             "Liczba splitów": split_count
         })
 
-    # 5) Zapis CSV
+    # zapis do CSV
     os.makedirs(model_folder, exist_ok=True)
     csv_path = os.path.join(model_folder, "feature_importance_total_gain.csv")
     with open(csv_path, 'w', newline='', encoding='utf-8') as f:
@@ -215,7 +210,7 @@ def plot_feature_importance_total_gain(model, feature_names, model_folder):
         writer.writeheader()
         writer.writerows(csv_rows)
 
-    # 6) Wykres
+    # wykres
     plt.figure(figsize=(10, 6))
     plt.barh(sorted_features, sorted_values)
     plt.xlabel("Total Gain (%)")
@@ -231,7 +226,7 @@ def plot_feature_importance_total_gain(model, feature_names, model_folder):
 plot_feature_importance_total_gain(xgb_model, feature_names, model_folder)
 
 
-# Zapis modelu i skalera
+# zapis modelu i skalera
 pickle.dump(scaler, open(os.path.join(model_folder, "scaler.pkl"), "wb"))
 pickle.dump(xgb_model, open(os.path.join(model_folder, "xgboost_model.pkl"), "wb"))
 

@@ -13,7 +13,6 @@ from sklearn.metrics import (
 )
 import time
 
-# Ścieżki i dane
 desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
 real_feature_path = os.path.join(desktop_path, "XGBOOST_DATASET", "Feature", "REAL")
 fake_feature_path = os.path.join(desktop_path, "XGBOOST_DATASET", "Feature", "FAKE")
@@ -32,7 +31,7 @@ X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, stratify=y, random_state=42
 )
 
-# Skalowanie
+# skalowanie
 scaler = StandardScaler()
 X_train_scaled = scaler.fit_transform(X_train)
 X_test_scaled = scaler.transform(X_test)
@@ -42,7 +41,6 @@ pca = PCA(n_components=0.95, svd_solver="full", random_state=42)
 X_train_pca = pca.fit_transform(X_train_scaled)
 X_test_pca = pca.transform(X_test_scaled)
 
-# Folder wyników
 def get_unique_folder_name(base_path):
     if not os.path.exists(base_path):
         return base_path
@@ -61,12 +59,12 @@ pca_folder = os.path.join(model_folder, "pca_analysis")
 os.makedirs(pca_folder, exist_ok=True)
 
 
-# PCA analiza
+# pca analiza
 explained_ratios = pca.explained_variance_ratio_
 cumulative_var = np.cumsum(explained_ratios)
 n_components_95 = pca.n_components_
 
-# PCA Explainability do CSV
+# pca explainability do CSV
 pca_explain_df = pd.DataFrame({
     "PC": [f"PC{i+1}" for i in range(len(explained_ratios))],
     "ExplainedVariance": explained_ratios
@@ -84,7 +82,7 @@ extra_rows = pd.DataFrame({
 
 pca_explain_df = pd.concat([pca_explain_df, extra_rows], ignore_index=True)
 
-# Zapis do CSV
+# zapis do CSV
 pca_explain_df.to_csv(os.path.join(pca_folder, "pca_explainability.csv"), index=False)
 
 
@@ -92,7 +90,7 @@ print(f"\nNoise variance: {pca.noise_variance_:.4f}")
 print(f"Suma explained variance: {np.sum(explained_ratios):.4f}")
 print(f"Liczba komponentów odpowiadających za 95% wariancji: {n_components_95}")
 
-# Główne cechy w PC1 i PC2
+# główne cechy w PC1 i PC2
 components = pca.components_
 pc1_weights = components[0]
 pc2_weights = components[1]
@@ -103,7 +101,7 @@ pc2_df = pd.Series(pc2_weights, index=feature_names).abs().sort_values(ascending
 pc1_df.head(20).to_csv(os.path.join(pca_folder, "top_features_PC1.csv"))
 pc2_df.head(20).to_csv(os.path.join(pca_folder, "top_features_PC2.csv"))
 
-# Wykres explained variance
+# wykres explained variance
 plt.figure(figsize=(10, 5))
 plt.bar(range(1, len(explained_ratios) + 1), explained_ratios, alpha=0.7, label="Wyjaśniona wariancja")
 plt.plot(range(1, len(explained_ratios) + 1), cumulative_var, marker='o', label="Skumulowana wyjaśniona\nwariancja")
@@ -116,7 +114,7 @@ plt.tight_layout()
 plt.savefig(os.path.join(pca_folder, "explained_variance_pca.png"))
 plt.show()
 
-# Skumulowany wpływ cech
+# skumulowany wpływ cech
 n_top_components = 20
 cumulative_weights = np.abs(pca.components_[:n_top_components, :]).sum(axis=0)
 cumulative_df = pd.DataFrame({
@@ -125,11 +123,11 @@ cumulative_df = pd.DataFrame({
 }).sort_values(by="CumulativeInfluence", ascending=False)
 
 
-# Zmiana wpływu na %
+# zmiana wpływu na %
 cumulative_df["PercentInfluence"] = 100 * cumulative_df["CumulativeInfluence"] / cumulative_df["CumulativeInfluence"].sum()
 cumulative_df.to_csv(os.path.join(pca_folder, "percent_feature_influence.csv"), index=False)
 
-# Wykres procentowego wpływu
+# wykres procentowego wpływu
 plt.figure(figsize=(10, len(feature_names) * 0.3))
 sns.barplot(
     data=cumulative_df.sort_values(by="PercentInfluence", ascending=False),
@@ -144,7 +142,7 @@ plt.tight_layout()
 plt.savefig(os.path.join(pca_folder, "percent_feature_influence.png"))
 plt.show()
 
-# Wpływ cech na wszystkie PCA
+# wpływ cech na wszystkie PCA
 pc_columns = []
 pc_idx = 1
 while pc_idx <= pca.n_components_:

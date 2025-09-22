@@ -12,16 +12,13 @@ from tensorflow.keras.layers import Dense, Dropout
 from tensorflow.keras.regularizers import l2
 import time
 
-# Ścieżki do danych cech
 desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
 real_feature_path = os.path.join(desktop_path, "XGBOOST_DATASET", "Feature", "REAL")
 fake_feature_path = os.path.join(desktop_path, "XGBOOST_DATASET", "Feature", "FAKE")
 
-# Parametry
 batch_size = 8
 epochs = 30
 
-# Folder zapisu
 def get_unique_folder_name(base_path):
     if not os.path.exists(base_path):
         return base_path
@@ -37,7 +34,7 @@ model_folder = get_unique_folder_name(model_folder)
 os.makedirs(model_folder, exist_ok=True)
 print(f"⚪ Wyniki będą zapisane w: {model_folder}")
 
-# Wczytywanie cech
+# wczytywanie cech
 X_real = np.load(os.path.join(real_feature_path, "features.npy"))
 X_fake = np.load(os.path.join(fake_feature_path, "features.npy"))
 
@@ -47,15 +44,15 @@ y_fake = np.ones(X_fake.shape[0])
 X = np.concatenate((X_real, X_fake), axis=0)
 y = np.concatenate((y_real, y_fake), axis=0)
 
-# Shuffle
+# shuffle
 X, y = shuffle(X, y, random_state=42)
 
-# Split
+# split
 X_train, X_val, y_train, y_val = train_test_split(
     X, y, test_size=0.2, stratify=y, random_state=42
 )
 
-# Normalizacja tylko na train, potem transform na val
+# normalizacja tylko na train, potem transform na val
 scaler = StandardScaler()
 X_train = scaler.fit_transform(X_train)
 X_val = scaler.transform(X_val)
@@ -65,11 +62,10 @@ X_val = scaler.transform(X_val)
 class_weights = compute_class_weight("balanced", classes=np.unique(y), y=y)
 class_weight_dict = {0: class_weights[0], 1: class_weights[1]}
 
-# Datasety
+# datasety
 train_dataset = tf.data.Dataset.from_tensor_slices((X_train, y_train)).batch(batch_size)
 val_dataset = tf.data.Dataset.from_tensor_slices((X_val, y_val)).batch(batch_size)
 
-# Własna metryka F1
 class F1Score(tf.keras.metrics.Metric):
     def __init__(self, name="f1_score", **kwargs):
         super(F1Score, self).__init__(name=name, **kwargs)
@@ -111,11 +107,9 @@ model.compile(
     metrics=["accuracy", tf.keras.metrics.Precision(), tf.keras.metrics.Recall(), tf.keras.metrics.AUC(), F1Score()]
 )
 
-# Callbacks
 early_stop = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True, verbose=1)
 reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=2, min_lr=1e-6, verbose=1)
 
-# Trening
 start_time = time.time()
 
 history = model.fit(
@@ -133,19 +127,16 @@ time_df = pd.DataFrame({
 })
 time_df.to_csv(os.path.join(model_folder, "training_time.csv"), index=False)
 
-# Zapis modelu i skalera
 model.save(os.path.join(model_folder, "mlp_model.h5"))
 pickle.dump(scaler, open(os.path.join(model_folder, "scaler.pkl"), "wb"))
 
-# Zapis historii
 history_df = pd.DataFrame(history.history)
 history_df.to_csv(os.path.join(model_folder, "training_history.csv"), index=False)
 
-# Informacja o modelu
 model_info = (
     f"Epoki: {epochs}   "
     f"Batch: {batch_size}   "
-    f"Warstwy: [128, 64]   "
+    f"Warstwy: [256, 128, 64, 32]   "
     f"Wejście: cechy z XGBoost ({input_dim})"
 )
 
@@ -186,15 +177,13 @@ def plot_metrics(history, model_info, save_path):
         axes[i].grid(True)
         axes[i].legend()
 
-    # Tytuł wykresu
+    # tytuł wykresu
     fig.suptitle(model_info, fontsize=18)
     plt.tight_layout(rect=[0, 0.03, 1, 0.97])
 
     plt.savefig(save_path)
     plt.close()
 
-
-# Po treningu modelu:
 history_df = pd.DataFrame(history.history)
 plot_metrics(history_df, model_info, os.path.join(model_folder, "metrics.png"))
 
